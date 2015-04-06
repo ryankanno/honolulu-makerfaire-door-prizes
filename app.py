@@ -1,7 +1,7 @@
 import os
 import signal
 
-from door_prize_notifier.app import app
+from makerfaire.app import app
 
 
 def graceful_shutdown(signum, frame):
