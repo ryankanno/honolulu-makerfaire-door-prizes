@@ -26,10 +26,6 @@ from urlobject import URLObject
 # Declare and configure application
 app = Flask(__name__, static_url_path='/static')
 app.config.from_pyfile('local_settings.py')
-admin = Admin(app)
-admin.add_view(ModelView(PhoneNumber, db_session))
-admin.add_view(ModelView(RaffleNumber, db_session))
-
 
 def twilio_secure(func):
     """Wrap a view function to ensure that every request comes from Twilio."""
@@ -47,7 +43,8 @@ def twilio_secure(func):
 def check_raffle():
     response = twiml.Response()
     try:
-        from_number = request.values.get('From', None)
+        sms_from = request.values.get('From', None)
+        sms_body = request.values.get('Body', None)
     except:
         pass
     return str(response)
@@ -59,7 +56,8 @@ def show_raffle_numbers():
     return render_template('slash.html')
 
 
-class Admin(BaseView):
+class RaffleView(BaseView):
+
     @expose('/')
     def index(self):
         return self.render('admin_index.html')
@@ -89,3 +87,7 @@ def validate_twilio_request():
     else:
         return False
     return validator.validate(url, request.form, signature.encode('UTF-8'))
+
+
+admin = Admin(app)
+admin.add_view(RaffleView(name="Raffle"))
