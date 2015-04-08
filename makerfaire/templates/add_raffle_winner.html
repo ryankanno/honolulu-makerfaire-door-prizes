@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block main_content %}
+
+<h1>Add Raffle Winner</h1>
+
+<form method="POST" action="/raffle_winners/add">
+    {{ form.csrf_token }}
+    {{ form.raffle_time.label }} {{ form.raffle_time(size=5) }}
+    {{ form.raffle_number.label }} {{ form.raffle_number(size=5) }}
+    {{ form.item.label }} {{ form.item(size=256) }}
+    <input type="submit" value="Submit">
+</form>
+
+{% endblock main_content %}

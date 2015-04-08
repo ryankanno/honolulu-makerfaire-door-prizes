@@ -1,1 +1,23 @@
 {% extends 'base.html' %}
+
+{% block main_content %}
+
+<h1>Unclaimed Raffle Winners</h1>
+
+<ul>
+{% for unclaimed in unclaimed_raffle_winners %}
+    <li>{{ unclaimed.raffle_number }}</li>
+{% endfor %}
+</ul>
+
+<hr/>
+
+<h1>Raffle Winners</h1>
+
+<ul>
+{% for winner in raffle_winners %}
+    {{ winner.raffle_number }}
+{% endfor %}
+</ul>
+
+{% endblock main_content %}
