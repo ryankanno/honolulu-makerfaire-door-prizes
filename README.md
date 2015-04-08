@@ -1,4 +1,4 @@
-# Honolulu Makerfaire Door Prize
+# Honolulu Makerfaire Raffle
 
 **Note**: This started as a copy and paste of https://github.com/RobSpectre/Twilio-Hackpack-for-Heroku-and-Flask/ (production branch)
 
