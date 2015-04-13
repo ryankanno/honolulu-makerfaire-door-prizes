@@ -56,5 +56,11 @@ docs/_build/
 # PyBuilder
 target/
 
+# credentials
 bootstrap.sh
+
+# tunnel
 ngrok
+
+# vagrant
+.vagrant

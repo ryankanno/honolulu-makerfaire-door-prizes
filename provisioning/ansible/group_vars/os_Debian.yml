@@ -1,0 +1,13 @@
+# common
+
+# nginx
+
+nginx:
+  package: nginx
+  version: 1.2.1-2.2+wheezy3
+
+# uwsgi
+
+uwsgi:
+  package: uwsgi
+  version: 5.4.39-0+deb7u2
