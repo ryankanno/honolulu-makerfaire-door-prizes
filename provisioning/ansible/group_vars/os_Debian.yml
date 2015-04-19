@@ -1,4 +1,8 @@
-# common
+# supervisor
+
+supervisor:
+  package: supervisor
+  version: 3.0b2
 
 # nginx
 
@@ -10,4 +14,4 @@ nginx:
 
 uwsgi:
   package: uwsgi
-  version: 5.4.39-0+deb7u2
+  version: 2.0.10

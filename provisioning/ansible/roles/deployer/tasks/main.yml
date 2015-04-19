@@ -1,0 +1,29 @@
+---
+  - name: deployer | main.yml | install python
+    apt: name=python state=latest
+
+  - name: deployer | main.yml | install pip
+    apt: name=python-pip state=latest
+
+  - name: deployer | main.yml | get release timestamp
+    command: date +%Y%m%d%H%M%S
+    register: timestamp
+
+  - name: deployer | main.yml | get release directory
+    command: echo "/var/www/hnlmakerfaire/releases/{{ timestamp.stdout }}"
+    register: release_path
+
+  - name: deployer | main.yml | create release directory
+    file: state=directory path={{ release_path.stdout }}
+
+  - name: deployer | main.yml | copy src folder to server
+    copy: src=../../../../../src/ dest={{ release_path.stdout }}
+
+  - name: deployer | main.yml | copy requirements to server
+    copy: src=../../../../../requirements.txt dest={{ release_path.stdout }}
+
+  - name: deployer | main.yml | install requirements.txt
+    shell: cd {{ release_path.stdout }}; pip install -r requirements.txt
+
+  - name: deployer | main.yml | update current symlink
+    file: state=link path=/var/www/hnlmakerfaire/current src={{ release_path.stdout }}

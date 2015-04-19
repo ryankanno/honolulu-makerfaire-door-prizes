@@ -1,0 +1,6 @@
+---
+  - name: web | config_application_server.yml | install supervisor
+    pip: name={{ supervisor.package }} version={{ supervisor.version }}
+
+  - name: web | config_supervisor.yml | ensure supervisor configuration
+    template: src=supervisord.conf.j2 dest=/etc/supervisord.conf group=root owner=root

@@ -5,6 +5,7 @@ from flask import render_template
 from flask import url_for
 from flask import redirect
 from flask import request
+from flask import Response
 from flask import current_app
 from flask_wtf import Form
 from functools import wraps
@@ -193,6 +194,10 @@ def show_raffle_numbers():
     return render_template('slash.html',
                            unclaimed_raffle_winners=unclaimed_raffle_winners)
 
+# test view
+@app.route('/test', methods=['GET'])
+def test():
+    return Response("Test Completed", mimetype='text/html')
 
 # shutdown database
 @app.teardown_appcontext

@@ -13,11 +13,12 @@ Vagrant.configure(2) do |config|
 
   config.vm.hostname = 'makerfaire.local'
   config.vm.network "private_network", ip: "192.168.51.51"
-  config.vm.network "forwarded_port", guest: 80, host: 500, auto_correct: true
+  config.vm.network "forwarded_port", guest: 80, host: 50051, auto_correct: true
 
   config.vm.provision :ansible do |ansible|
     ansible.playbook = "provisioning/ansible/site.yml"
     ansible.extra_vars = { ansible_ssh_user: "vagrant" }
+    ansible.verbose = 'vvvv'
   end
 
   config.vm.provider "virtualbox" do |vm|

@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+
+<uwsgi>
+    <socket>127.0.0.1:6969</socket>
+    <pythonpath>/var/www/hnlmakerfaire/current</pythonpath>
+    <module>app</module>
+    <callable>app</callable>
+    <plugins>python</plugins>
+    <processes>1</processes>
+    <uid>33</uid>
+    <gid>33</gid>
+    <enable-threads/>
+    <master/>
+    <harakiri>120</harakiri>
+    <max-requests>5000</max-requests>
+    <buffer-size>32768</buffer-size>
+</uwsgi>
