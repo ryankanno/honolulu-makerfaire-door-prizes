@@ -12,7 +12,14 @@
 
 # Running the App
 
+## Locally
+
 `python app.py`
+
+## Remotely
+
+  - `sudo kill -15 <supervisor processs here>`
+  - `source /var/www/hnlmakerfaire/current/bootstrap.sh && sudo -E supervisord -c /etc/supervisord.conf`
 
 # User flows
 
@@ -35,7 +42,3 @@
     numbers for the ticket number.
   - If a number matches an existing saved number, play yoda voice indicating
     the user has won and should report to the front desk.
-
-# TODO
-
-  - Add admin security
