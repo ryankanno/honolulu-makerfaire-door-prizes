@@ -1,0 +1,11 @@
+body {
+  margin: 2em;
+}
+
+span.alert {
+  padding:.5em;
+}
+
+span.alert-error {
+  background-color: #ffd1dc;
+}

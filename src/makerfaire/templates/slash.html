@@ -15,8 +15,8 @@
 <h1>Raffle Winners</h1>
 
 <ul>
-{% for winner in raffle_winners %}
-    {{ winner.raffle_number }}
+{% for claimed in claimed_raffle_winners %}
+    <li>{{ claimed.raffle_number }}</li>
 {% endfor %}
 </ul>
 

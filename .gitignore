@@ -57,7 +57,7 @@ docs/_build/
 target/
 
 # credentials
-bootstrap.sh
+bootstrap*.sh
 
 # tunnel
 ngrok

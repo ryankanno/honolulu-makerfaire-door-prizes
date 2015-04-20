@@ -5,7 +5,6 @@ from flask import render_template
 from flask import url_for
 from flask import redirect
 from flask import request
-from flask import Response
 from flask import current_app
 from flask_wtf import Form
 from functools import wraps
@@ -27,9 +26,11 @@ from twilio import twiml
 from twilio.util import RequestValidator
 from urlobject import URLObject
 from wtforms import StringField
+from wtforms import IntegerField
 from wtforms_components import DateRange
 from wtforms_components import DateTimeField
 from wtforms.validators import DataRequired
+from wtforms.widgets import HiddenInput
 
 
 WINNER_COPY = """ WINNER! WINNER! CHICKEN DINNER!"""
@@ -39,15 +40,45 @@ LOSER_COPY = """ NEXT TIME, USE THE FORCE! """
 
 app = Flask(__name__, static_url_path='/static')
 app.config.from_pyfile('local_settings.py')
+app.debug = app.config.get('ENVIRONMENT', None) == 'Development'
+
 
 # Database
 
-engine = create_engine('sqlite:////tmp/makerfaire.db', convert_unicode=True)
+engine = create_engine('sqlite:///' + app.config.get('DATABASE'),
+                       convert_unicode=True)
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
 Base = declarative_base()
 Base.query = db_session.query_property()
+
+
+# Basic Auth
+
+def check_auth(username, password):
+    """This function is called to check if a username /
+    password combination is valid.
+    """
+    return (username == current_app.config['HNLMAKERFAIRE_USERNAME']) and \
+           (password == current_app.config['HNLMAKERFAIRE_PASSWORD'])
+
+
+def authenticate():
+    """Sends a 401 response that enables basic auth"""
+    return Response('Could not verify your access level for that URL.\n'
+                    'You have to login with proper credentials', 401,
+                    {'WWW-Authenticate': 'Basic realm="Login Required"'})
+
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
 
 
 # Models
@@ -115,7 +146,7 @@ def twilio_secure(func):
 
 # raffle_check
 @app.route('/raffle_check', methods=['GET', 'POST'])
-# @twilio_secure
+@twilio_secure
 def check_raffle():
     response = twiml.Response()
     response_msg = ""
@@ -129,32 +160,45 @@ def check_raffle():
 
                 if sms_from:
                     # retrieve phone number
-                    number = PhoneNumber.query.filter(PhoneNumber.phone_number == sms_from.strip()).first()
+                    number = PhoneNumber.query.filter(
+                        PhoneNumber.phone_number == sms_from.strip()).first()
 
                     # if number found
                     if number:
-                        found_number = [num for num in number.raffle_numbers if num.raffle_number == raffle_number]
+                        found_number = [num for num in number.raffle_numbers
+                                        if num.raffle_number == raffle_number]
                         if found_number:
-                            response_msg = "You've already submitted this number."
+                            response_msg = \
+                                "You've already submitted this number."
                             response.sms(response_msg)
                             return str(response)
                         else:
-                            phone_number_raffle_number = PhoneNumberRaffleNumber(raffle_number=raffle_number, phone_number_id=number.id, updated_at=datetime.utcnow(), created_at=datetime.utcnow())
-                            number.raffle_numbers.append(phone_number_raffle_number)
+                            phone_number_raffle_number = \
+                                PhoneNumberRaffleNumber(
+                                    raffle_number=raffle_number,
+                                    phone_number_id=number.id,
+                                    updated_at=datetime.utcnow(),
+                                    created_at=datetime.utcnow())
+                            number.raffle_numbers.append(
+                                phone_number_raffle_number)
                             db_session.add(number)
                             db_session.commit()
                     else:
                         # save from and number
-                        phone_number = PhoneNumber(sms_from.strip(),
-                                datetime.utcnow(), datetime.utcnow())
-                        phone_number_raffle_number = PhoneNumberRaffleNumber(raffle_number=raffle_number,
-                                updated_at=datetime.utcnow(),
-                                created_at=datetime.utcnow())
-                        phone_number.raffle_numbers.append(phone_number_raffle_number)
+                        phone_number = PhoneNumber(
+                            sms_from.strip(),
+                            datetime.utcnow(), datetime.utcnow())
+                        phone_number_raffle_number = PhoneNumberRaffleNumber(
+                            raffle_number=raffle_number,
+                            updated_at=datetime.utcnow(),
+                            created_at=datetime.utcnow())
+                        phone_number.raffle_numbers.append(
+                            phone_number_raffle_number)
                         db_session.add(phone_number)
                         db_session.commit()
 
-                    winner = RaffleWinner.query.filter(RaffleWinner.raffle_number == raffle_number).first()
+                    winner = RaffleWinner.query.filter(
+                        RaffleWinner.raffle_number == raffle_number).first()
                     response_msg = WINNER_COPY if winner else LOSER_COPY
                 else:
                     return
@@ -163,13 +207,14 @@ def check_raffle():
         else:
             response_msg = "Please submit a valid raffle number!"
     except Exception as e:
-        print e
+        current_app.logger.exception(e)
     response.sms(response_msg)
     return str(response)
 
 
-# add_raffle_winner
-@app.route('/raffle_winners/add', methods=['GET', 'POST'])
+# admin add_raffle_winner
+@app.route('/admin/raffle_winners/add', methods=['GET', 'POST'])
+@requires_auth
 def add_raffle_winner():
     form = RaffleWinnerForm()
 
@@ -183,7 +228,69 @@ def add_raffle_winner():
         db_session.commit()
         return redirect('/')
 
-    return render_template('add_raffle_winner.html', form=form)
+    return render_template('admin/add_raffle_winner.html', form=form)
+
+
+# admin view_raffle_winner
+@app.route('/admin/raffle_winners/', methods=['GET'])
+@requires_auth
+def view_raffle_winner():
+    raffle_winners = RaffleWinner.\
+        query.filter()
+    return render_template('admin/view_raffle_winners.html',
+                           raffle_winners=raffle_winners)
+
+
+# admin view_raffle_winner
+@app.route('/admin/raffle_winners/<int:raffle_winner_id>/edit',
+           methods=['GET', 'POST'])
+@requires_auth
+def edit_raffle_winner(raffle_winner_id):
+    if request.method == 'GET':
+        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+        form = RaffleWinnerForm(obj=raffle_winner)
+    else:
+        raffle_winner_id = request.values.get('id', None)
+        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+        form = RaffleWinnerForm()
+        form.populate_obj(raffle_winner)
+        raffle_winner.updated_at = datetime.utcnow()
+        db_session.add(raffle_winner)
+        db_session.commit()
+        return redirect(url_for('view_raffle_winner'))
+
+    return render_template('admin/edit_raffle_winner.html',
+                           form=form)
+
+
+# admin claim_raffle_winner
+@app.route('/admin/raffle_winners/claim', methods=['POST'])
+@requires_auth
+def claim_raffle_winner():
+    raffle_winner_id = request.values.get('raffle_id', None)
+    if raffle_winner_id:
+        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+        if raffle_winner:
+            raffle_winner.is_claimed = True
+            db_session.add(raffle_winner)
+            db_session.commit()
+
+    return redirect(url_for('view_raffle_winner'))
+
+
+# admin unclaim_raffle_winner
+@app.route('/admin/raffle_winners/unclaim', methods=['POST'])
+@requires_auth
+def unclaim_raffle_winner():
+    raffle_winner_id = request.values.get('raffle_id', None)
+    if raffle_winner_id:
+        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+        if raffle_winner:
+            raffle_winner.is_claimed = False
+            db_session.add(raffle_winner)
+            db_session.commit()
+
+    return redirect(url_for('view_raffle_winner'))
 
 
 # default view
@@ -191,13 +298,19 @@ def add_raffle_winner():
 def show_raffle_numbers():
     unclaimed_raffle_winners = RaffleWinner.\
         query.filter(RaffleWinner.is_claimed == False)
+    claimed_raffle_winners = RaffleWinner.\
+        query.filter(RaffleWinner.is_claimed == True)
     return render_template('slash.html',
-                           unclaimed_raffle_winners=unclaimed_raffle_winners)
+                           unclaimed_raffle_winners=unclaimed_raffle_winners,
+                           claimed_raffle_winners=claimed_raffle_winners)
 
-# test view
-@app.route('/test', methods=['GET'])
-def test():
-    return Response("Test Completed", mimetype='text/html')
+
+# 500
+@app.errorhandler(500)
+def internal_error(exception):
+    current_app.logger.exception(exception)
+    return render_template('500.html'), 500
+
 
 # shutdown database
 @app.teardown_appcontext
@@ -211,15 +324,16 @@ def init_db():
 
 # forms
 class RaffleWinnerForm(Form):
+    id = IntegerField(widget=HiddenInput())
     raffle_time = DateTimeField(
-        'raffle_time',
+        'Drawing Time',
         validators=[DateRange(
             min=datetime(2015, 5, 14),
             max=datetime(2015, 5, 16)
         )]
     )
-    raffle_number = StringField('raffle_number', validators=[DataRequired()])
-    item = StringField('item', validators=[DataRequired()])
+    raffle_number = StringField('Raffle Number', validators=[DataRequired()])
+    item = StringField('Prize', validators=[DataRequired()])
 
 
 def validate_twilio_request():

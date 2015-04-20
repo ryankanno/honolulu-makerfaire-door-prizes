@@ -2,5 +2,9 @@ import os
 
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', None)
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', None)
+HNLMAKERFAIRE_USERNAME = os.environ.get('HNLMAKERFAIRE_USERNAME', None)
+HNLMAKERFAIRE_PASSWORD = os.environ.get('HNLMAKERFAIRE_PASSWORD', None)
+ENVIRONMENT = os.environ.get('HNLMAKERFAIRE_ENVIRONMENT', 'Development')
+DATABASE = os.environ.get('HNLMAKERFAIRE_DATABASE', None)
 WTF_CSRF_ENABLED = True
 SECRET_KEY = 'boomshakalaka'

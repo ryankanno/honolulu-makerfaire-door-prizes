@@ -22,6 +22,9 @@
   - name: deployer | main.yml | copy requirements to server
     copy: src=../../../../../requirements.txt dest={{ release_path.stdout }}
 
+  - name: deployer | main.yml | copy bootstrahp.sh to server
+    copy: src=../../../../../bootstrap_prod.sh dest={{ release_path.stdout }}
+
   - name: deployer | main.yml | install requirements.txt
     shell: cd {{ release_path.stdout }}; pip install -r requirements.txt
 
