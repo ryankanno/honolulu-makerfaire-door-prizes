@@ -1,0 +1,28 @@
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Audits </h1>
+
+{% if audits %}
+<table>
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Description</th>
+            <th>DateTime</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for audit in audits %}
+        <tr>
+            <td>{{ audit.id }}</a></td>
+            <td>{{ audit.description }}</td>
+            <td>{{ audit.created_at }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock main_content %}

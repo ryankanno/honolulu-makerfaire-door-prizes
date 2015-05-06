@@ -176,7 +176,7 @@ class Audit(Base):
 
     def __init__(self, description, created_at=None):
         self.description = description
-        self.created_at = created_at
+        self.created_at = created_at or get_hst_time()
 
     def __repr__(self):
         return '<Audit %r>' % (self.description)
@@ -368,20 +368,30 @@ def admin_notify_raffle_winner():
             winners = PhoneNumber.query.join(PhoneNumberRaffleNumber).filter(PhoneNumberRaffleNumber.raffle_number == raffle_winner.raffle_number).all()
             if winners:
                 for winner in winners:
-                    account_sid = current_app.config['TWILIO_ACCOUNT_SID']
-                    auth_token = current_app.config['TWILIO_AUTH_TOKEN']
-                    from_number = current_app.config['TWILIO_NUMBER']
-                    client = TwilioRestClient(account_sid, auth_token)
-                    client.messages.create(to=winner.phone_number, from_=from_number, body=WINNER_COPY)
+                    _notify_via_twilio(winner.phone_number, WINNER_COPY)
+
+                    audit = Audit("Notified {0} that they've won a prize for claiming {1}".format(winner.phone_number, raffle_winner.raffle_number))
+                    db_session.add(audit)
+
+                    for raffle_number in winner.raffle_numbers:
+                        if raffle_number.raffle_number == raffle_winner.raffle_number:
+                            raffle_number.num_notified += 1
+                            db_session.add(raffle_number)
 
                 raffle_winner.num_notified += 1
                 db_session.add(raffle_winner)
                 db_session.commit()
         else:
             flash('Over the notification limit for this raffle prize!')
-
-
     return redirect(url_for('admin_view_raffle_winners'))
+
+
+def _notify_via_twilio(to, message):
+    account_sid = current_app.config['TWILIO_ACCOUNT_SID']
+    auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+    from_number = current_app.config['TWILIO_NUMBER']
+    client = TwilioRestClient(account_sid, auth_token)
+    client.messages.create(to=to, from_=from_number, body=message)
 
 
 # admin view_phone_numbers
@@ -491,6 +501,15 @@ def admin_delete_phone_number_raffle_number(phone_number_id, phone_number_raffle
     db_session.commit()
     return redirect(url_for('admin_edit_phone_number',
         phone_number_id=phone_number_id))
+
+
+# admin view_audits
+@app.route('/admin/audits', methods=['GET'])
+@requires_auth
+def admin_view_audits():
+    audits = Audit.query.order_by(Audit.created_at.desc())
+    return render_template('admin/audits/view_audits.html',
+                           audits=audits)
 
 
 # default view

@@ -23,14 +23,7 @@
             <td>
                 {% for raffle in number.raffle_numbers %}
                     {% if raffle.raffle_number in raffle_winners %}
-                    <a href="{{
-                        url_for('admin_view_phone_number_raffle_number_by_raffle_number', raffle_number=raffle.raffle_number, ) }}">{{ raffle.raffle_number }}</a>
-                    {% else %}
-                    {{ raffle.raffle_number }}
-                    {% endif %}
-                    {% if not loop.last %}
-                        ,
-                    {% endif %}
+                    <a href="{{ url_for('admin_view_phone_number_raffle_number_by_raffle_number', raffle_number=raffle.raffle_number, ) }}">{{ raffle.raffle_number }}</a>{% else %}{{ raffle.raffle_number }}{% endif %}{% if not loop.last %}, {% endif %}
                 {% endfor %}
             </td>
         </tr>
