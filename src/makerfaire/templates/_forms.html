@@ -3,7 +3,6 @@
 <fieldset>
 {% for field in form %}
 {% if field.type in ['CSRFTokenField', 'HiddenField'] or field.widget.input_type in ['hidden'] %}
-    {{ field() }}
 {% else %}
     {{ field.label }}
     {{ field() }}

@@ -1,0 +1,59 @@
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Raffle Winners</h1>
+
+<a href="{{ url_for('admin_add_raffle_winner') }}">Add</a>
+
+{% if raffle_winners %}
+<table>
+    <thead>
+        <tr>
+            <th>Time Drawn</th>
+            <th>Raffle Number</th>
+            <th>Prize</th>
+            <th>Number of times notified</th>
+            <th>Claimed?</th>
+            <th>Notify?</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for winner in raffle_winners %}
+        <tr class="{% if winner.is_claimed %}claimed{% endif %}">
+            <td>{{ winner.raffle_time }}</td>
+            <td><a href="{{ url_for('admin_edit_raffle_winner', raffle_winner_id=winner.id) }}">{{ winner.raffle_number }}</a></td>
+            <td>{{ winner.item }}</td>
+            <td>{{ winner.num_notified }}</td>
+            <td>
+                {% if winner.is_claimed %}
+                <form method=POST action="{{ url_for('admin_unclaim_raffle_winner')}}">
+                    <input type="hidden" name="raffle_id" value="{{ winner.id }}">
+                    <input type="submit" value="Unclaim">
+                </form>
+                {% else %}
+                <form method=POST action="{{ url_for('admin_claim_raffle_winner')}}">
+                    <input type="hidden" name="raffle_id" value="{{ winner.id }}">
+                    <input type="submit" value="Claim">
+                </form>
+                {% endif %}
+            </td>
+            <td>
+                <form method=POST action="{{ url_for('admin_notify_raffle_winner')}}">
+                    <input type="hidden" name="raffle_id" value="{{ winner.id }}">
+                    <input type="submit" value="Notify">
+                </form>
+            </td>
+            <td>
+                <form method=POST action="{{ url_for('admin_delete_raffle_winner', raffle_winner_id=winner.id)}}">
+                    <input type="hidden" name="raffle_id" value="{{ winner.id }}">
+                    <input type="submit" value="Delete">
+                </form>
+            </td>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock main_content %}

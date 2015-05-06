@@ -6,7 +6,7 @@
 
 <ul>
 {% for unclaimed in unclaimed_raffle_winners %}
-    <li>{{ unclaimed.raffle_number }}</li>
+    <li>{{ unclaimed.raffle_number }} - {{ unclaimed.item}}</li>
 {% endfor %}
 </ul>
 

@@ -1,0 +1,15 @@
+{% import '_forms.html' as forms %}
+
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Add Raffle Number to {{ phone_number.phone_number }}</h1>
+
+<form method="POST" action="{{ url_for('admin_add_phone_number_raffle_number', phone_number_id=phone_number.id) }}">
+    {{ form.crsf_token }}
+    {{ forms.render(form) }}
+    <input type="submit" value="Add">
+</form>
+
+{% endblock main_content %}

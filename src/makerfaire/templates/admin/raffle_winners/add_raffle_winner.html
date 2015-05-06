@@ -1,12 +1,13 @@
 {% import '_forms.html' as forms %}
 
-{% extends 'base.html' %}
+{% extends 'admin/base.html' %}
 
 {% block main_content %}
 
 <h1>Add Raffle Winner</h1>
 
-<form method="POST" action="{{ url_for('add_raffle_winner') }}">
+<form method="POST" action="{{ url_for('admin_add_raffle_winner') }}">
+    {{ form.crsf_token }}
     {{ forms.render(form) }}
     <input type="submit" value="Add">
 </form>

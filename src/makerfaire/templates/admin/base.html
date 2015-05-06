@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block header_content %}
+
+<ul>
+  <li><a href="{{ url_for('admin_view_raffle_winners')}}">Raffle Winners</a></li>
+  <li><a href="{{ url_for('admin_view_phone_numbers')}}">Phone Numbers</a></li>
+</ul>
+
+{% endblock header_content %}

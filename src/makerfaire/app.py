@@ -1,4 +1,5 @@
 from datetime import datetime
+from flask import flash
 from flask import Flask
 from flask import Response
 from flask import render_template
@@ -8,6 +9,8 @@ from flask import request
 from flask import current_app
 from flask_wtf import Form
 from functools import wraps
+from pytz import timezone
+import pytz
 import re
 from sqlalchemy import Boolean
 from sqlalchemy import Column
@@ -15,6 +18,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
+from sqlalchemy import UniqueConstraint
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import relationship
@@ -23,18 +27,26 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 from twilio import twiml
+from twilio.rest import TwilioRestClient
 from twilio.util import RequestValidator
 from urlobject import URLObject
 from wtforms import StringField
+from wtforms import TextAreaField
 from wtforms import IntegerField
+from wtforms_alchemy import ModelFieldList
+from wtforms_alchemy import model_form_factory
+from wtforms.fields import FormField
 from wtforms_components import DateRange
 from wtforms_components import DateTimeField
 from wtforms.validators import DataRequired
+from wtforms.validators import Optional
 from wtforms.widgets import HiddenInput
+from wtforms.widgets import ListWidget
+from wtforms.widgets import TableWidget
+from wtforms.widgets import TextInput
 
-
-WINNER_COPY = """ WINNER! WINNER! CHICKEN DINNER!"""
-LOSER_COPY = """ NEXT TIME, USE THE FORCE! """
+WINNER_COPY = """ You've won a prize at the Honolulu Makerfaire! Please report to the prize booth immediately. """
+LOSER_COPY = """ You haven't won yet, but who knows what the future holds for you at the Honolulu Makerfaire? """
 
 # Application
 
@@ -52,6 +64,14 @@ db_session = scoped_session(sessionmaker(autocommit=False,
                                          bind=engine))
 Base = declarative_base()
 Base.query = db_session.query_property()
+
+BaseModelForm = model_form_factory(Form)
+
+class ModelForm(BaseModelForm):
+    @classmethod
+    def get_session(self):
+        return db_session
+
 
 
 # Basic Auth
@@ -86,13 +106,15 @@ def requires_auth(f):
 class PhoneNumber(Base):
     __tablename__ = 'PhoneNumber'
     id = Column(Integer, primary_key=True)
-    phone_number = Column(String(32), unique=True)
-    raffle_numbers = relationship("PhoneNumberRaffleNumber",
-                                  backref="phone_number")
+    phone_number = Column(String(32), unique=True, info={'label': 'Phone Number', 'validators': [DataRequired()]})
+    raffle_numbers = relationship(
+        'PhoneNumberRaffleNumber',
+        backref='phone_number'
+    )
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
-    def __init__(self, phone_number, created_at, updated_at):
+    def __init__(self, phone_number=None, created_at=None, updated_at=None):
         self.phone_number = phone_number
         self.created_at = created_at
         self.updated_at = updated_at
@@ -103,34 +125,61 @@ class PhoneNumber(Base):
 
 class PhoneNumberRaffleNumber(Base):
     __tablename__ = 'PhoneNumberRaffleNumber'
+    __table_args__ = (
+        UniqueConstraint('raffle_number', 'phone_number_id', name='uix_1'),
+    )
     id = Column(Integer, primary_key=True)
-    raffle_number = Column(String(8), unique=True)
+    raffle_number = Column(String(8), nullable=False, info={'label': 'Raffle Number' })
     phone_number_id = Column(Integer, ForeignKey('PhoneNumber.id'))
+    num_notified = Column(Integer)
     updated_at = Column(DateTime)
     created_at = Column(DateTime)
+
+
+def get_hst_time():
+    return datetime.now(tz=pytz.utc).astimezone(timezone('US/Hawaii')).replace(tzinfo=None)
 
 
 class RaffleWinner(Base):
     __tablename__ = 'RaffleWinner'
     id = Column(Integer, primary_key=True)
-    raffle_number = Column(String(8), unique=True)
-    raffle_time = Column(DateTime)
-    item = Column(String(256))
+    raffle_number = Column(String(8), nullable=False, unique=True, info={'label': 'Raffle Number'})
+    raffle_time = Column(DateTime, nullable=False,
+        info={'label':'Raffle Time',
+        'widget': TextInput(),
+        'min': datetime(2015, 5, 15, 0, 0, 0).replace(tzinfo=None),
+        'max': datetime(2015, 5, 15, 23, 59, 59).replace(tzinfo=None)})
+    item = Column(String(256), nullable=False, info={'label': 'Raffle Prize'})
     is_claimed = Column(Boolean)
+    num_notified = Column(Integer)
     updated_at = Column(DateTime)
     created_at = Column(DateTime)
 
     def __init__(self, raffle_number=None, raffle_time=None, item=None,
-                 is_claimed=None, created_at=None, updated_at=None):
+                 is_claimed=False, num_notified=0, created_at=None, updated_at=None):
         self.raffle_number = raffle_number
         self.raffle_time = raffle_time
         self.item = item
         self.is_claimed = is_claimed
+        self.num_notified = num_notified
         self.updated_at = updated_at
         self.created_at = created_at
 
     def __repr__(self):
         return '<Raffle Winner %r>' % (self.raffle_number)
+
+class Audit(Base):
+    __tablename__ = 'Audit'
+    id = Column(Integer, primary_key=True)
+    description = Column(String(256))
+    created_at = Column(DateTime)
+
+    def __init__(self, description, created_at=None):
+        self.description = description
+        self.created_at = created_at
+
+    def __repr__(self):
+        return '<Audit %r>' % (self.description)
 
 
 # Views
@@ -212,85 +261,221 @@ def check_raffle():
     return str(response)
 
 
-# admin add_raffle_winner
-@app.route('/admin/raffle_winners/add', methods=['GET', 'POST'])
+# admin index
+@app.route('/admin/', methods=['GET'])
 @requires_auth
-def add_raffle_winner():
-    form = RaffleWinnerForm()
-
-    if form.validate_on_submit():
-        raffle_winner = RaffleWinner()
-        form.populate_obj(raffle_winner)
-        raffle_winner.is_claimed = False
-        raffle_winner.updated_at = datetime.utcnow()
-        raffle_winner.created_at = datetime.utcnow()
-        db_session.add(raffle_winner)
-        db_session.commit()
-        return redirect('/')
-
-    return render_template('admin/add_raffle_winner.html', form=form)
+def admin_index():
+    return render_template('admin/index.html')
 
 
-# admin view_raffle_winner
+# admin view_raffle_winners
 @app.route('/admin/raffle_winners/', methods=['GET'])
 @requires_auth
-def view_raffle_winner():
+def admin_view_raffle_winners():
     raffle_winners = RaffleWinner.\
-        query.filter()
-    return render_template('admin/view_raffle_winners.html',
+        query.all()
+    return render_template('admin/raffle_winners/view_raffle_winners.html',
                            raffle_winners=raffle_winners)
 
 
-# admin view_raffle_winner
+# admin add_raffle_winner
+@app.route('/admin/raffle_winners/add', methods=['GET', 'POST'])
+@requires_auth
+def admin_add_raffle_winner():
+    form = RaffleWinnerForm()
+    if request.method == 'GET':
+        form.raffle_time.data = get_hst_time()
+    else:
+        if form.validate_on_submit():
+            raffle_winner = RaffleWinner()
+            form.populate_obj(raffle_winner)
+            raffle_winner.is_claimed = False
+            raffle_winner.updated_at = datetime.utcnow()
+            raffle_winner.created_at = datetime.utcnow()
+            db_session.add(raffle_winner)
+            db_session.commit()
+            return redirect(url_for('admin_view_raffle_winners'))
+
+    return render_template('admin/raffle_winners/add_raffle_winner.html', form=form)
+
+
+# admin edit_raffle_winner
 @app.route('/admin/raffle_winners/<int:raffle_winner_id>/edit',
            methods=['GET', 'POST'])
 @requires_auth
-def edit_raffle_winner(raffle_winner_id):
+def admin_edit_raffle_winner(raffle_winner_id):
+    raffle_winner = RaffleWinner.query.get(raffle_winner_id)
     if request.method == 'GET':
-        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
         form = RaffleWinnerForm(obj=raffle_winner)
     else:
-        raffle_winner_id = request.values.get('id', None)
-        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
-        form = RaffleWinnerForm()
-        form.populate_obj(raffle_winner)
-        raffle_winner.updated_at = datetime.utcnow()
-        db_session.add(raffle_winner)
-        db_session.commit()
-        return redirect(url_for('view_raffle_winner'))
+        form = RaffleWinnerForm(obj=raffle_winner)
+        if form.validate_on_submit():
+            form.populate_obj(raffle_winner)
+            raffle_winner.updated_at = datetime.utcnow()
+            db_session.add(raffle_winner)
+            db_session.commit()
+            return redirect(url_for('admin_view_raffle_winners'))
 
-    return render_template('admin/edit_raffle_winner.html',
-                           form=form)
+    return render_template('admin/raffle_winners/edit_raffle_winner.html',
+                           form=form, raffle_winner=raffle_winner)
+
+
+# admin delete_raffle_winner
+@app.route('/admin/raffle_winners/<int:raffle_winner_id>/delete',
+           methods=['POST'])
+@requires_auth
+def admin_delete_raffle_winner(raffle_winner_id):
+    raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+    db_session.delete(raffle_winner)
+    db_session.commit()
+    return redirect(url_for('admin_view_raffle_winners'))
 
 
 # admin claim_raffle_winner
 @app.route('/admin/raffle_winners/claim', methods=['POST'])
 @requires_auth
-def claim_raffle_winner():
-    raffle_winner_id = request.values.get('raffle_id', None)
-    if raffle_winner_id:
-        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
-        if raffle_winner:
-            raffle_winner.is_claimed = True
-            db_session.add(raffle_winner)
-            db_session.commit()
-
-    return redirect(url_for('view_raffle_winner'))
+def admin_claim_raffle_winner():
+    _claim_unclaim_raffle_winner(True)
+    return redirect(url_for('admin_view_raffle_winners'))
 
 
 # admin unclaim_raffle_winner
 @app.route('/admin/raffle_winners/unclaim', methods=['POST'])
 @requires_auth
-def unclaim_raffle_winner():
+def admin_unclaim_raffle_winner():
+    _claim_unclaim_raffle_winner(False)
+    return redirect(url_for('admin_view_raffle_winners'))
+
+
+def _claim_unclaim_raffle_winner(claim):
     raffle_winner_id = request.values.get('raffle_id', None)
     if raffle_winner_id:
         raffle_winner = RaffleWinner.query.get(raffle_winner_id)
         if raffle_winner:
-            raffle_winner.is_claimed = False
+            raffle_winner.is_claimed = claim
             db_session.add(raffle_winner)
             db_session.commit()
 
-    return redirect(url_for('view_raffle_winner'))
+
+# admin notify_raffle_winner
+@app.route('/admin/raffle_winners/notify', methods=['POST'])
+@requires_auth
+def admin_notify_raffle_winner():
+    raffle_winner_id = request.values.get('raffle_id', None)
+    if raffle_winner_id:
+        raffle_winner = RaffleWinner.query.get(raffle_winner_id)
+        if raffle_winner.num_notified < 5:
+            winners = PhoneNumber.query.join(PhoneNumberRaffleNumber).filter(PhoneNumberRaffleNumber.raffle_number == raffle_winner.raffle_number).all()
+            if winners:
+                for winner in winners:
+                    account_sid = current_app.config['TWILIO_ACCOUNT_SID']
+                    auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+                    from_number = current_app.config['TWILIO_NUMBER']
+                    client = TwilioRestClient(account_sid, auth_token)
+                    client.messages.create(to=winner.phone_number, from_=from_number, body=WINNER_COPY)
+
+                raffle_winner.num_notified += 1
+                db_session.add(raffle_winner)
+                db_session.commit()
+        else:
+            flash('Over the notification limit for this raffle prize!')
+
+
+    return redirect(url_for('admin_view_raffle_winners'))
+
+
+# admin view_phone_numbers
+@app.route('/admin/phone_numbers', methods=['GET'])
+@requires_auth
+def admin_view_phone_numbers():
+    phone_numbers = PhoneNumber.query.all()
+    return render_template('admin/phone_numbers/view_phone_numbers.html',
+                           phone_numbers=phone_numbers)
+
+
+# admin add_phone_number
+@app.route('/admin/phone_numbers/add', methods=['GET', 'POST'])
+@requires_auth
+def admin_add_phone_number():
+    form = PhoneNumberForm()
+
+    if form.validate_on_submit():
+        phone_number = PhoneNumber()
+        form.populate_obj(phone_number)
+        phone_number.updated_at = datetime.utcnow()
+        phone_number.created_at = datetime.utcnow()
+        db_session.add(phone_number)
+        db_session.commit()
+        return redirect(url_for('admin_view_phone_numbers'))
+
+    return render_template('admin/phone_numbers/add_phone_number.html', form=form)
+
+
+# admin edit_phone_number
+@app.route('/admin/phone_numbers/<int:phone_number_id>/edit',
+           methods=['GET', 'POST'])
+@requires_auth
+def admin_edit_phone_number(phone_number_id):
+    phone_number = PhoneNumber.query.get(phone_number_id)
+    if request.method == 'GET':
+        form = PhoneNumberForm(obj=phone_number)
+    else:
+        form = PhoneNumberForm(obj=phone_number)
+        if form.validate_on_submit():
+            form.populate_obj(phone_number)
+            phone_number.updated_at = datetime.utcnow()
+            db_session.add(phone_number)
+            db_session.commit()
+            return redirect(url_for('admin_view_phone_numbers'))
+
+    return render_template('admin/phone_numbers/edit_phone_number.html',
+                           form=form, phone_number=phone_number)
+
+
+# admin delete_phone_number
+@app.route('/admin/phone_numbers/<int:phone_number_id>/delete',
+           methods=['POST'])
+@requires_auth
+def admin_delete_phone_number(phone_number_id):
+    phone_number = PhoneNumber.query.get(phone_number_id)
+    db_session.delete(phone_number)
+    db_session.commit()
+    return redirect(url_for('admin_view_phone_numbers'))
+
+
+# admin add_phone_number_raffle_number
+@app.route('/admin/phone_numbers/<int:phone_number_id>/raffle_numbers/add',
+           methods=['GET', 'POST'])
+@requires_auth
+def admin_add_phone_number_raffle_number(phone_number_id):
+    phone_number = PhoneNumber.query.get(phone_number_id)
+    form = PhoneNumberRaffleNumberForm()
+
+    if form.validate_on_submit():
+        pn_rn = PhoneNumberRaffleNumber()
+        form.populate_obj(pn_rn)
+        pn_rn.phone_number_id = phone_number_id
+        pn_rn.updated_at = datetime.utcnow()
+        pn_rn.created_at = datetime.utcnow()
+        db_session.add(pn_rn)
+        db_session.commit()
+        return redirect(url_for('admin_view_phone_numbers'))
+
+    return render_template('admin/phone_numbers/add_raffle_number.html',
+            form=form, phone_number=phone_number)
+
+
+# admin delete_phone_number_raffle_number
+@app.route('/admin/phone_numbers/<int:phone_number_id>/raffle_numbers/<int:phone_number_raffle_number_id>/delete',
+           methods=['POST'])
+@requires_auth
+def admin_delete_phone_number_raffle_number(phone_number_id, phone_number_raffle_number_id):
+    phone_number_raffle_number = PhoneNumberRaffleNumber.query.get(phone_number_raffle_number_id)
+    phone_number_id = phone_number_raffle_number.phone_number.id
+    db_session.delete(phone_number_raffle_number)
+    db_session.commit()
+    return redirect(url_for('admin_edit_phone_number',
+        phone_number_id=phone_number_id))
 
 
 # default view
@@ -323,17 +508,24 @@ def init_db():
 
 
 # forms
-class RaffleWinnerForm(Form):
-    id = IntegerField(widget=HiddenInput())
-    raffle_time = DateTimeField(
-        'Drawing Time',
-        validators=[DateRange(
-            min=datetime(2015, 5, 14),
-            max=datetime(2015, 5, 16)
-        )]
-    )
-    raffle_number = StringField('Raffle Number', validators=[DataRequired()])
-    item = StringField('Prize', validators=[DataRequired()])
+class RaffleWinnerForm(ModelForm):
+    class Meta:
+        model = RaffleWinner
+        include_primary_key = True
+        only = ['raffle_time', 'raffle_number', 'item']
+
+
+class PhoneNumberRaffleNumberForm(ModelForm):
+    class Meta:
+        model = PhoneNumberRaffleNumber
+        only = ['raffle_number']
+
+
+class PhoneNumberForm(ModelForm):
+    class Meta:
+        model = PhoneNumber
+        include_primary_key = True
+        only = ['phone_number']
 
 
 def validate_twilio_request():

@@ -1,0 +1,24 @@
+{% import '_forms.html' as forms %}
+
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Add Phone Number</h1>
+
+<form method="POST" action="{{ url_for('admin_add_phone_number') }}">
+    {{ form.crsf_token }}
+    <fieldset>
+    {{ form.phone_number.label }}
+    {{ form.phone_number }}
+    {% if form.phone_number.errors%}
+      <span class="alert alert-error">{{ form.phone_number.errors|join(' ') }}</span>
+    {% endif %}
+    {% for raffle in form.raffle_numbers %}
+        {{ forms.render(raffle) }}
+    {% endfor %}
+    </fieldset>
+    <input type="submit" value="Add">
+</form>
+
+{% endblock main_content %}

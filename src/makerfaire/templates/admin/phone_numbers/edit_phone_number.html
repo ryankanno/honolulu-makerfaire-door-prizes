@@ -1,0 +1,47 @@
+{% import '_forms.html' as forms %}
+
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Edit Phone Number</h1>
+
+<form method="POST" action="{{ url_for('admin_edit_phone_number', phone_number_id=phone_number.id) }}">
+    {{ form.crsf_token }}
+    <fieldset>
+    {{ form.phone_number.label }}
+    {{ form.phone_number }}
+    {% if form.phone_number.errors%}
+      <span class="alert alert-error">{{ form.phone_number.errors|join(' ') }}</span>
+    {% endif %}
+    <br/>
+    <input type="submit" value="Edit">
+</form>
+
+<hr/>
+
+<a href="{{ url_for('admin_add_phone_number_raffle_number', phone_number_id=phone_number.id) }}">Add Another Raffle</a>
+
+{% if phone_number.raffle_numbers %}
+<table>
+    <thead>
+        <tr>
+            <th>Raffle Number</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for raffle in phone_number.raffle_numbers %}
+        <tr>
+            <td>{{ raffle.raffle_number }}</td>
+            <td>
+                <form method=POST action="{{ url_for('admin_delete_phone_number_raffle_number', phone_number_id=phone_number.id, phone_number_raffle_number_id=raffle.id) }}">
+                    <input type="submit" value="Delete">
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock main_content %}

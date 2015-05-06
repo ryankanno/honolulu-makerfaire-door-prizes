@@ -1,0 +1,34 @@
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Phone Numbers</h1>
+
+<a href="{{ url_for('admin_add_phone_number') }}">Add</a>
+
+{% if phone_numbers %}
+<table>
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Phone Number</th>
+            <th>Raffle Number(s) Submitted</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for number in phone_numbers %}
+        <tr>
+            <td><a href="{{ url_for('admin_edit_phone_number', phone_number_id=number.id) }}">{{ number.id }}</a></td>
+            <td>{{ number.phone_number }}</td>
+            <td>
+                {% for raffle in number.raffle_numbers %}
+                    {{ raffle.raffle_number }},
+                {% endfor %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock main_content %}
