@@ -2,11 +2,11 @@
 
 {% block main_content %}
 
-<h1>Unclaimed Raffle Winners</h1>
+<h1>Prizes Still Available</h1>
 
 <ul>
 {% for unclaimed in unclaimed_raffle_winners %}
-    <li>{{ unclaimed.raffle_number }} - {{ unclaimed.item}}</li>
+    <li>{{ unclaimed.raffle_number }} ({{ unclaimed.item}})</li>
 {% endfor %}
 </ul>
 

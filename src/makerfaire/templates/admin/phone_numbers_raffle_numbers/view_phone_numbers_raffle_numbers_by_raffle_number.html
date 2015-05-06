@@ -1,0 +1,27 @@
+{% extends 'admin/base.html' %}
+
+{% block main_content %}
+
+<h1>Phone Numbers Claiming {{ raffle_number }}</h1>
+
+{% if phone_number_raffle_numbers %}
+<table>
+    <thead>
+        <tr>
+            <th>Phone Number</th>
+            <th>Number of times notified</th>
+        </tr>
+    </thead>
+    <tbody>
+
+    {% for pn_rn in phone_number_raffle_numbers %}
+        <tr>
+            <td>{{ pn_rn.phone_number.phone_number }}</td>
+            <td>{{ pn_rn.num_notified }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% endblock main_content %}

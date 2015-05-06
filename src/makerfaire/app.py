@@ -131,7 +131,7 @@ class PhoneNumberRaffleNumber(Base):
     id = Column(Integer, primary_key=True)
     raffle_number = Column(String(8), nullable=False, info={'label': 'Raffle Number' })
     phone_number_id = Column(Integer, ForeignKey('PhoneNumber.id'))
-    num_notified = Column(Integer)
+    num_notified = Column(Integer, default=0)
     updated_at = Column(DateTime)
     created_at = Column(DateTime)
 
@@ -389,8 +389,13 @@ def admin_notify_raffle_winner():
 @requires_auth
 def admin_view_phone_numbers():
     phone_numbers = PhoneNumber.query.all()
+    raffle_winners = RaffleWinner.query.all()
+    raffle_winners_as_dict = {}
+    for winner in raffle_winners:
+        raffle_winners_as_dict[winner.raffle_number] = winner
     return render_template('admin/phone_numbers/view_phone_numbers.html',
-                           phone_numbers=phone_numbers)
+                           phone_numbers=phone_numbers,
+                           raffle_winners=raffle_winners_as_dict)
 
 
 # admin add_phone_number
@@ -441,6 +446,16 @@ def admin_delete_phone_number(phone_number_id):
     db_session.delete(phone_number)
     db_session.commit()
     return redirect(url_for('admin_view_phone_numbers'))
+
+
+# admin view_phone_number_raffle_number
+@app.route('/admin/phone_number_raffle_numbers/<string:raffle_number>', methods=['GET'])
+@requires_auth
+def admin_view_phone_number_raffle_number_by_raffle_number(raffle_number):
+    phone_number_raffle_numbers = PhoneNumberRaffleNumber.query.filter(PhoneNumberRaffleNumber.raffle_number == raffle_number)
+    return render_template('admin/phone_numbers_raffle_numbers/view_phone_numbers_raffle_numbers_by_raffle_number.html',
+                           phone_number_raffle_numbers=phone_number_raffle_numbers,
+                           raffle_number=raffle_number)
 
 
 # admin add_phone_number_raffle_number
@@ -526,6 +541,8 @@ class PhoneNumberForm(ModelForm):
         model = PhoneNumber
         include_primary_key = True
         only = ['phone_number']
+
+    raffle_numbers = ModelFieldList(FormField(PhoneNumberRaffleNumberForm), min_entries=1, max_entries=1)
 
 
 def validate_twilio_request():
