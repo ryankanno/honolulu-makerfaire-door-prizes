@@ -24,6 +24,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import MultipleResultsFound
+from sqlalchemy.sql import and_
 from sqlalchemy.ext.declarative import declarative_base
 
 from twilio import twiml
@@ -45,8 +48,8 @@ from wtforms.widgets import ListWidget
 from wtforms.widgets import TableWidget
 from wtforms.widgets import TextInput
 
-WINNER_COPY = """ You've won a prize at the Honolulu Makerfaire! Please report to the prize booth immediately. """
-LOSER_COPY = """ You haven't won yet, but who knows what the future holds for you at the Honolulu Makerfaire? """
+WINNER_COPY = """ You've won a prize at the Honolulu Makerfaire! Please report to the prize booth immediately.\nPowered by hicapacity.org"""
+LOSER_COPY = """ You haven't won yet, but who knows what the future holds for you at the Honolulu Makerfaire?\nPowered by hicapacity.org"""
 
 # Application
 
@@ -131,7 +134,8 @@ class PhoneNumberRaffleNumber(Base):
     id = Column(Integer, primary_key=True)
     raffle_number = Column(String(8), nullable=False, info={'label': 'Raffle Number' })
     phone_number_id = Column(Integer, ForeignKey('PhoneNumber.id'))
-    num_notified = Column(Integer, default=0)
+    num_system_notified = Column(Integer, default=0)
+    num_admin_notified = Column(Integer, default=0)
     updated_at = Column(DateTime)
     created_at = Column(DateTime)
 
@@ -151,17 +155,19 @@ class RaffleWinner(Base):
         'max': datetime(2015, 5, 15, 23, 59, 59).replace(tzinfo=None)})
     item = Column(String(256), nullable=False, info={'label': 'Raffle Prize'})
     is_claimed = Column(Boolean)
-    num_notified = Column(Integer)
+    num_system_notified = Column(Integer, default=0)
+    num_admin_notified = Column(Integer, default=0)
     updated_at = Column(DateTime)
     created_at = Column(DateTime)
 
     def __init__(self, raffle_number=None, raffle_time=None, item=None,
-                 is_claimed=False, num_notified=0, created_at=None, updated_at=None):
+                 is_claimed=False, num_system_notified=0, num_admin_notified=0, created_at=None, updated_at=None):
         self.raffle_number = raffle_number
         self.raffle_time = raffle_time
         self.item = item
         self.is_claimed = is_claimed
-        self.num_notified = num_notified
+        self.num_system_notified = num_system_notified
+        self.num_admin_notified = num_admin_notified
         self.updated_at = updated_at
         self.created_at = created_at
 
@@ -195,14 +201,14 @@ def twilio_secure(func):
 
 # raffle_check
 @app.route('/raffle_check', methods=['GET', 'POST'])
-@twilio_secure
+#@twilio_secure
 def check_raffle():
     response = twiml.Response()
     response_msg = ""
     try:
         sms_body = request.values.get('Body', None)
         if sms_body:
-            searches = re.search(r'^[0-9]{4,5}$', sms_body.strip())
+            searches = re.search(r'^[0-9]{4}$', sms_body.strip())
             if searches:
                 raffle_number = searches.group()
                 sms_from = request.values.get('From', None)
@@ -231,6 +237,10 @@ def check_raffle():
                             number.raffle_numbers.append(
                                 phone_number_raffle_number)
                             db_session.add(number)
+
+                            audit = Audit("{0} (existing) has saved {1}".format(sms_from.strip(), raffle_number))
+
+                            db_session.add(audit)
                             db_session.commit()
                     else:
                         # save from and number
@@ -243,11 +253,37 @@ def check_raffle():
                             created_at=datetime.utcnow())
                         phone_number.raffle_numbers.append(
                             phone_number_raffle_number)
+
+                        audit = Audit("{0} (new) has saved {1}".format(sms_from.strip(), raffle_number))
+
+                        db_session.add(audit)
                         db_session.add(phone_number)
                         db_session.commit()
 
                     winner = RaffleWinner.query.filter(
                         RaffleWinner.raffle_number == raffle_number).first()
+
+                    if winner:
+                        winner.num_system_notified += 1
+                        db_session.add(winner)
+
+                        try:
+                            phone_number_raffle_number = PhoneNumberRaffleNumber.query.filter(and_(PhoneNumberRaffleNumber.raffle_number == raffle_number, PhoneNumberRaffleNumber.phone_number_id == number.id)).one()
+
+                            if phone_number_raffle_number:
+                                phone_number_raffle_number.num_system_notified += 1
+                                db_session.add(phone_number_raffle_number)
+
+                            audit = Audit("System notified {0} that they've won a prize for {1}".format(number.phone_number, raffle_number))
+                            db_session.add(audit)
+
+                        except MultipleResultsFound, e:
+                            pass
+                        except NoResultFound, e:
+                            pass
+
+                        db_session.commit()
+
                     response_msg = WINNER_COPY if winner else LOSER_COPY
                 else:
                     return
@@ -292,6 +328,10 @@ def admin_add_raffle_winner():
             raffle_winner.is_claimed = False
             raffle_winner.updated_at = datetime.utcnow()
             raffle_winner.created_at = datetime.utcnow()
+
+            audit = Audit("Admin has drawn number {0} for prize {1}".format(raffle_winner.raffle_number, raffle_winner.item))
+
+            db_session.add(audit)
             db_session.add(raffle_winner)
             db_session.commit()
             return redirect(url_for('admin_view_raffle_winners'))
@@ -364,25 +404,24 @@ def admin_notify_raffle_winner():
     raffle_winner_id = request.values.get('raffle_id', None)
     if raffle_winner_id:
         raffle_winner = RaffleWinner.query.get(raffle_winner_id)
-        if raffle_winner.num_notified < 5:
-            winners = PhoneNumber.query.join(PhoneNumberRaffleNumber).filter(PhoneNumberRaffleNumber.raffle_number == raffle_winner.raffle_number).all()
-            if winners:
-                for winner in winners:
-                    _notify_via_twilio(winner.phone_number, WINNER_COPY)
+        winners = PhoneNumber.query.join(PhoneNumberRaffleNumber).filter(PhoneNumberRaffleNumber.raffle_number == raffle_winner.raffle_number).all()
+        if winners:
+            for winner in winners:
+                _notify_via_twilio(winner.phone_number, WINNER_COPY)
 
-                    audit = Audit("Notified {0} that they've won a prize for claiming {1}".format(winner.phone_number, raffle_winner.raffle_number))
-                    db_session.add(audit)
+                audit = Audit("Admin notified {0} that they've won a prize for claiming {1}".format(winner.phone_number, raffle_winner.raffle_number))
+                db_session.add(audit)
 
-                    for raffle_number in winner.raffle_numbers:
-                        if raffle_number.raffle_number == raffle_winner.raffle_number:
-                            raffle_number.num_notified += 1
-                            db_session.add(raffle_number)
+                for raffle_number in winner.raffle_numbers:
+                    if raffle_number.raffle_number == raffle_winner.raffle_number:
+                        raffle_number.num_admin_notified += 1
+                        db_session.add(raffle_number)
 
-                raffle_winner.num_notified += 1
-                db_session.add(raffle_winner)
-                db_session.commit()
+            raffle_winner.num_admin_notified += 1
+            db_session.add(raffle_winner)
+            db_session.commit()
         else:
-            flash('Over the notification limit for this raffle prize!')
+            flash('No phone number has claimed this raffle number, so a notification at this time is unnecessary.')
     return redirect(url_for('admin_view_raffle_winners'))
 
 
@@ -561,7 +600,7 @@ class PhoneNumberForm(ModelForm):
         include_primary_key = True
         only = ['phone_number']
 
-    raffle_numbers = ModelFieldList(FormField(PhoneNumberRaffleNumberForm), min_entries=1, max_entries=1)
+    raffle_numbers = ModelFieldList(FormField(PhoneNumberRaffleNumberForm), min_entries=1)
 
 
 def validate_twilio_request():

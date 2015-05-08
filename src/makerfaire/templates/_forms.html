@@ -4,11 +4,15 @@
 {% for field in form %}
 {% if field.type in ['CSRFTokenField', 'HiddenField'] or field.widget.input_type in ['hidden'] %}
 {% else %}
+  <div class="form-group">
     {{ field.label }}
-    {{ field() }}
     {% if field.errors%}
-      <span class="alert alert-error">{{ field.errors|join(' ') }}</span>
+      <div class="alert alert-danger" role="alert">
+      {{ field.errors|join(' ') }}
+      </div>
     {% endif %}
+    {{ field(class_="form-control") }}
+  </div>
 {% endif %}
 {% endfor %}
 </fieldset>

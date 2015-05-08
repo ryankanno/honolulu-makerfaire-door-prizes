@@ -15,9 +15,9 @@
     <meta name="viewport" content="width=device-width" />
     {% endblock meta %}
 
-    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/normalize.css')}}"/>
-    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/skeleton.css')}}"/>
+    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/bootstrap.min.css')}}"/>
     <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/main.css')}}"/>
+    <script type="text/javascript" href="{{url_for('static', filename='js/bootstrap.min.js')}}"></script>
 </head>
 
 {% block body %}
@@ -28,6 +28,7 @@
     {% block header %}
     <header>
     {% block header_content %}
+    <img src="https://hicapacity.org/img/hicap_logo.svg" height="120px"/>
     {% endblock header_content %}
     </header>
     {% endblock header %}
@@ -43,7 +44,7 @@
     {% endwith %}
 
     {% block main %}
-    <div role="main">
+    <div role="main" class="container">
         {% block main_content %}
         {% endblock main_content %}
     </div>
@@ -52,7 +53,7 @@
     {% block footer %}
     <footer>
     {% block footer_content %}
-        <p>&copy; Honolulu Makerfaire</p>
+    <center><p>&copy; Honolulu Makerfaire</p></center>
     {% endblock footer_content %}
     </footer>
     {% endblock footer %}

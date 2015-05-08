@@ -2,30 +2,35 @@
 
 {% block main_content %}
 
-<h1>Raffle Winners</h1>
+<div class="page-header">
+    <h1>Raffle Winners</h1>
+</div>
 
 <a href="{{ url_for('admin_add_raffle_winner') }}">Add</a>
 
 {% if raffle_winners %}
-<table>
+<table class="table">
     <thead>
         <tr>
             <th>Time Drawn</th>
             <th>Raffle Number</th>
             <th>Prize</th>
-            <th>Number of times notified</th>
-            <th>Claimed?</th>
+            <th>Number of times<br/> admin notified</th>
+            <th>Number of times<br/> system notified</th>
+            <th>Awarded?</th>
             <th>Notify?</th>
+            <th></th>
             <th></th>
         </tr>
     </thead>
     <tbody>
     {% for winner in raffle_winners %}
-        <tr class="{% if winner.is_claimed %}claimed{% endif %}">
+        <tr class="{% if winner.is_claimed %}success{% endif %}">
             <td>{{ winner.raffle_time }}</td>
-            <td><a href="{{ url_for('admin_edit_raffle_winner', raffle_winner_id=winner.id) }}">{{ winner.raffle_number }}</a></td>
+            <td><a href="{{ url_for('admin_view_phone_number_raffle_number_by_raffle_number', raffle_number=winner.raffle_number, ) }}">{{ winner.raffle_number }}</a></td>
             <td>{{ winner.item }}</td>
-            <td>{{ winner.num_notified }}</td>
+            <td>{{ winner.num_admin_notified }}</td>
+            <td>{{ winner.num_system_notified }}</td>
             <td>
                 {% if winner.is_claimed %}
                 <form method=POST action="{{ url_for('admin_unclaim_raffle_winner')}}">
@@ -44,6 +49,11 @@
                     <input type="hidden" name="raffle_id" value="{{ winner.id }}">
                     <input type="submit" value="Notify">
                 </form>
+            </td>
+            <td>
+                <a href="{{ url_for('admin_edit_raffle_winner', raffle_winner_id=winner.id) }}">
+                    <input type="button" value="Edit">
+                </a>
             </td>
             <td>
                 <form method=POST action="{{ url_for('admin_delete_raffle_winner', raffle_winner_id=winner.id)}}">

@@ -2,12 +2,14 @@
 
 {% block main_content %}
 
-<h1>Phone Numbers</h1>
+<div class="page-header">
+    <h1>Phone Numbers</h1>
+</div>
 
 <a href="{{ url_for('admin_add_phone_number') }}">Add</a>
 
 {% if phone_numbers %}
-<table>
+<table class="table table-striped">
     <thead>
         <tr>
             <th>Id</th>

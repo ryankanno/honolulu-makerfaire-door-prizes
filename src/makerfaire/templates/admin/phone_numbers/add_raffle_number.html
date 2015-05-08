@@ -4,7 +4,9 @@
 
 {% block main_content %}
 
-<h1>Add Raffle Number to {{ phone_number.phone_number }}</h1>
+<div class="page-header">
+    <h1>Add Raffle Number to {{ phone_number.phone_number }}</h1>
+</div>
 
 <form method="POST" action="{{ url_for('admin_add_phone_number_raffle_number', phone_number_id=phone_number.id) }}">
     {{ form.crsf_token }}
