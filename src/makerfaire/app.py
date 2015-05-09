@@ -48,8 +48,8 @@ from wtforms.widgets import ListWidget
 from wtforms.widgets import TableWidget
 from wtforms.widgets import TextInput
 
-WINNER_COPY = """ You've won a prize at the Honolulu Makerfaire! Please report to the prize booth immediately.\nPowered by hicapacity.org"""
-LOSER_COPY = """ You haven't won yet, but who knows what the future holds for you at the Honolulu Makerfaire?\nPowered by hicapacity.org"""
+WINNER_COPY = """ You may have won a prize at the Honolulu Makerfaire! Please report to the prize booth immediately.\n\nPowered by hicapacity.org"""
+LOSER_COPY = """ You haven't won yet, but who knows what the future holds for you at the Honolulu Makerfaire?\n\nPowered by hicapacity.org"""
 
 # Application
 
@@ -201,14 +201,14 @@ def twilio_secure(func):
 
 # raffle_check
 @app.route('/raffle_check', methods=['GET', 'POST'])
-#@twilio_secure
+@twilio_secure
 def check_raffle():
     response = twiml.Response()
     response_msg = ""
     try:
         sms_body = request.values.get('Body', None)
         if sms_body:
-            searches = re.search(r'^[0-9]{4}$', sms_body.strip())
+            searches = re.search(r'^[0-9]{1,4}$', sms_body.strip())
             if searches:
                 raffle_number = searches.group()
                 sms_from = request.values.get('From', None)
@@ -288,9 +288,9 @@ def check_raffle():
                 else:
                     return
             else:
-                response_msg = "Please submit a valid raffle number!"
+                response_msg = "Please submit a valid 4-digit raffle number!"
         else:
-            response_msg = "Please submit a valid raffle number!"
+            response_msg = "Please submit a valid 4-digit raffle number!"
     except Exception as e:
         current_app.logger.exception(e)
     response.sms(response_msg)
@@ -609,13 +609,8 @@ def validate_twilio_request():
     if 'X-Twilio-Signature' not in request.headers:
         return False
     signature = request.headers['X-Twilio-Signature']
-    if 'CallSid' in request.form:
-        # See: http://www.twilio.com/docs/security#notes
-        url = URLObject(url_for('.voice', _external=True)).without_auth()
-        if request.is_secure:
-            url = url.without_port()
-    elif 'SmsSid' in request.form:
-        url = url_for('.sms', _external=True)
+    if 'SmsSid' in request.form:
+        url = url_for('check_raffle', _external=True)
     else:
         return False
     return validator.validate(url, request.form, signature.encode('UTF-8'))

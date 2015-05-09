@@ -1,23 +1,25 @@
 {% extends 'base.html' %}
 
+{% block header_content %}
+<center><img src="https://hicapacity.org/img/hicap_logo.svg" height="120px"/></center>
+{% endblock header_content %}
+
 {% block main_content %}
 
-<h1>Prizes Still Available</h1>
+<div class="front_page">
+    <h1>Prizes Still Available</h1>
 
-<ul>
-{% for unclaimed in unclaimed_raffle_winners %}
-    <li>{{ unclaimed.raffle_number }} ({{ unclaimed.item}})</li>
-{% endfor %}
-</ul>
+    {% for unclaimed in unclaimed_raffle_winners %}
+        <p class="bg-info">{{ unclaimed.raffle_number }} ({{ unclaimed.item}})</p>
+    {% endfor %}
 
-<hr/>
+    <hr/>
 
-<h1>Raffle Winners</h1>
+    <h1>Raffle Winners</h1>
 
-<ul>
-{% for claimed in claimed_raffle_winners %}
-    <li>{{ claimed.raffle_number }}</li>
-{% endfor %}
-</ul>
+    {% for claimed in claimed_raffle_winners %}
+        <p class="bg-success">{{ claimed.raffle_number }}</p>
+    {% endfor %}
+</div>
 
 {% endblock main_content %}
