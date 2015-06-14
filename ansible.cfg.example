@@ -1,0 +1,4 @@
+[defaults]
+ansible_managed=Ansible managed
+roles_path=
+hash_behaviour=merge
