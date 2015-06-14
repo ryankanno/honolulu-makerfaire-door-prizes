@@ -64,3 +64,5 @@ ngrok
 
 # vagrant
 .vagrant
+
+ansible.cfg
