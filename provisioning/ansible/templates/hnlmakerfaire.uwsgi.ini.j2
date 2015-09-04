@@ -1,0 +1,16 @@
+[uwsgi]
+threads = 40
+master = true
+socket = 127.0.0.1:6969
+chdir = {{ flask_application.target.path }}/current/hnlmakerfaire
+virtualenv = {{ flask_application.target.venvs_path }}/current
+pythonpath = {{ flask_application.target.path }}/current/hnlmakerfaire
+wsgi-file = uwsgi.py
+callable = app
+uid = {{ flask_application.user }}
+gid = {{ flask_application.group }}
+logto = /var/log/uwsgi-hnlmakerfaire.log
+buffer-size = 32768
+max-requests = 5000
+harakiri = 120
+enable-threads = True

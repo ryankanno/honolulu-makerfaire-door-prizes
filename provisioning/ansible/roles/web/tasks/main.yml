@@ -1,5 +1,0 @@
----
-  - include: config_dependencies.yml
-  - include: config_supervisor.yml
-  - include: config_web_server.yml
-  - include: config_application_server.yml

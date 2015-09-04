@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+
+[program:nginx]
+autostart=true
+command=/usr/sbin/nginx
+user = root
+
+[program:hnlmakerfaire_app]
+autostart=true
+environment=TWILIO_ACCOUNT_SID="",TWILIO_AUTH_TOKEN="",TWILIO_NUMBER="",HNLMAKERFAIRE_USERNAME="admin",HNLMAKERFAIRE_PASSWORD="password",HNLMAKERFAIRE_ENVIRONMENT=Development,HNLMAKERFAIRE_DATABASE="/tmp/hnlmakerfaire/hnlmakerfaire.db"
+command=/usr/local/bin/uwsgi --ini /etc/uwsgi/apps-enabled/hnlmakerfaire.ini
+user=root
+
+[group:hnlmakerfaire]
+programs=nginx,hnlmakerfaire_app
