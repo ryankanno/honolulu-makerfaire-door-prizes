@@ -21,6 +21,34 @@
   - `sudo kill -15 <supervisor processs here>`
   - `source /var/www/hnlmakerfaire/current/bootstrap.sh && sudo -E supervisord -c /etc/supervisord.conf`
 
+## Vagrant
+
+The skeleton has been integrated with
+[ansible-nginx-uwsgi-supervisor-deployer](http://github.com/ryankanno/ansible-nginx-uwsgi-supervisor-deployer).  
+To test out the installation in Vagrant, you'll ideally want to clone the following projects into the same parent directory:
+
+* [ansible-nginx-uwsgi-supervisor-deployer](http://github.com/ryankanno/ansible-nginx-uwsgi-supervisor-deployer)
+* [ansible-nginx-uwsgi-supervisor](http://github.com/ryankanno/ansible-nginx-uwsgi-supervisor)
+* [ansible-roles](http://github.com/ryankanno/ansible-roles)
+
+After checking those three projects out, you'll need to do two things:
+
+* Create an ansible.cfg ([example](http://github.com/ryankanno/flask-skeleton/tree/master/ansible.cfg.example)) with the roles_path pointed to the parent directory from above
+* `export NGINX_UWSGI_SUPERVISOR_DEPLOYER_PATH=<path_to_where_you_checked_out_ansible-nginx-uwsgi-supervisor-deployer>`
+
+To provision the machines, you'll want to make sure the Vagrantfile contains
+the following line:
+
+`ansible.playbook = ENV['NGINX_UWSGI_SUPERVISOR_DEPLOYER_PATH'] + "/provisioning/ansible/site.yml"`
+
+then run the following command:
+
+* `vagrant up`
+
+To deploy new changes to honolulu-makerfaire-raffle, you'll want to run the following command:
+
+* `vagrant provision`
+
 # User flows
 
 ## User texts raffle number
@@ -42,3 +70,4 @@
     numbers for the ticket number.
   - If a number matches an existing saved number, play yoda voice indicating
     the user has won and should report to the front desk.
+
