@@ -16,13 +16,13 @@ Vagrant.configure(2) do |config|
   config.vm.network "forwarded_port", guest: 80, host: 50051, auto_correct: true
 
   config.vm.provision :ansible do |ansible|
-    ansible.playbook = "../ansible-flask/provisioning/ansible/site.yml"
+    ansible.playbook = ENV['NGINX_UWSGI_SUPERVISOR_DEPLOYER_PATH'] + "/provisioning/ansible/site.yml"
     ansible.extra_vars = { ansible_ssh_user: "vagrant" }
     ansible.extra_vars = {
       nginx: {
         vhosts_conf: [
           {
-            src_path: __dir__ + '/provisioning/ansible/templates/hnlmakerfaire.nginx.j2',
+            src_path: ENV['NGINX_UWSGI_SUPERVISOR_DEPLOYER_PATH'] + '/provisioning/ansible/templates/app.nginx.conf.j2',
             target_name: 'hnlmakerfaire.conf'
           }
         ]
@@ -30,7 +30,7 @@ Vagrant.configure(2) do |config|
       uwsgi: {
         apps_conf: [
           {
-            src_path: __dir__ + '/provisioning/ansible/templates/hnlmakerfaire.uwsgi.ini.j2',
+            src_path: ENV['NGINX_UWSGI_SUPERVISOR_DEPLOYER_PATH'] + '/provisioning/ansible/templates/app.uwsgi.ini.j2',
             target_name: 'hnlmakerfaire.ini'
           }
         ]
@@ -46,17 +46,22 @@ Vagrant.configure(2) do |config|
           }
         ]
       },
-      flask_application: {
+      application_target_root_path: "/var/www/applications/hnlmakerfaire",
+      application: {
+        name: 'hnlmakerfaire',
+        hostname: 'hnlmakerfaire.com',
         user: 'www-data',
         group: 'www-data',
+        port: 50051,
         src: {
-          path: __dir__ + '/hnlmakerfaire',
+          path: __dir__ + '/hnlmakerfaire/',
           requirements_path: __dir__ + '/requirements.txt'
         },
         target: {
-          path: '/var/www/flask_applications/hnlmakerfaire/app',
-          venvs_path: '/var/www/flask_applications/hnlmakerfaire/venvs',
-          static_path: '/var/www/flask_applications/hnlmakerfaire/app/current/hnlmakerfaire/static'
+          app_path: "{{ application_target_root_path}}/app",
+          logs_path: "{{ application_target_root_path}}/logs",
+          venvs_path: "{{ application_target_root_path}}/venvs",
+          static_path: "{{ application_target_root_path}}/current/hnlmakerfaire/apps/static"
         },
         dependencies: [
           { package: 'python2.7', version: '2.7.6-8' },
@@ -71,7 +76,9 @@ Vagrant.configure(2) do |config|
         }
       }
     }
-    ansible.inventory_path = __dir__ + '/provisioning/ansible/ansible_hosts'
+    ansible.groups = {
+      "web" => ["makerfaire_vm"]
+    }
     ansible.limit = 'web'
   end
 
